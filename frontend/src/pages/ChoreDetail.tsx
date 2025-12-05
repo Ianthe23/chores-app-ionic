@@ -35,11 +35,17 @@ import {
   calendarOutline,
   flagOutline,
   checkmarkCircleOutline,
+  cameraOutline,
+  closeCircleOutline,
+  imageOutline,
 } from "ionicons/icons";
 import { useParams, useHistory } from "react-router-dom";
 import { useChores } from "../chores/ChoreProvider";
 import { Chore, UpdateChoreRequest, CreateChoreRequest } from "../types/chore";
 import { format } from "date-fns";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import axios from "axios";
 
 interface RouteParams {
   id: string;
@@ -67,6 +73,9 @@ const ChoreDetail: React.FC = () => {
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dueDate, setDueDate] = useState<string>("");
   const [points, setPoints] = useState<number>(0);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string>("");
+  const [photoPath, setPhotoPath] = useState<string>("");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const isNewChore = id === "new";
 
@@ -80,6 +89,8 @@ const ChoreDetail: React.FC = () => {
         setStatus(choreData.status);
         setPriority(choreData.priority);
         setDueDate(choreData.due_date || "");
+        setPhotoDataUrl(choreData.photo_url || "");
+        setPhotoPath(choreData.photo_path || "");
       }
     } else {
       setIsEditing(true);
@@ -92,6 +103,90 @@ const ChoreDetail: React.FC = () => {
       setPoints(chore.points ?? 0);
     }
   }, [isNewChore, chore]);
+
+  const handleTakePhoto = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+
+      if (image.dataUrl) {
+        setPhotoDataUrl(image.dataUrl);
+
+        // Save photo to device using Filesystem
+        const fileName = `photo_${new Date().getTime()}.${image.format}`;
+        const savedFile = await Filesystem.writeFile({
+          path: fileName,
+          data: image.dataUrl,
+          directory: Directory.Data,
+        });
+
+        setPhotoPath(savedFile.uri);
+        setToastMessage("Photo captured successfully!");
+        setShowToast(true);
+
+        // If editing existing chore, upload photo immediately
+        if (!isNewChore && chore) {
+          await uploadPhotoToServer(image.dataUrl);
+        }
+      }
+    } catch (error: any) {
+      console.error("Error taking photo:", error);
+      setToastMessage(error.message || "Failed to take photo");
+      setShowToast(true);
+    }
+  };
+
+  const uploadPhotoToServer = async (dataUrl: string) => {
+    if (!chore) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      // Convert data URL to blob
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('photo', blob, 'photo.jpg');
+
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+
+      // Upload to server
+      const uploadResponse = await axios.post(
+        `http://localhost:3000/api/chores/${chore.id}/photo`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Update local state with server response
+      if (uploadResponse.data.photo_url) {
+        setPhotoDataUrl(`http://localhost:3000${uploadResponse.data.photo_url}`);
+        setToastMessage("Photo uploaded successfully!");
+        setShowToast(true);
+      }
+    } catch (error: any) {
+      console.error("Error uploading photo:", error);
+      setToastMessage(error.message || "Failed to upload photo");
+      setShowToast(true);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoDataUrl("");
+    setPhotoPath("");
+  };
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -321,6 +416,59 @@ const ChoreDetail: React.FC = () => {
                   </IonLabel>
                 </IonItem>
 
+                {/* Photo Section */}
+                <div style={{ marginTop: "16px" }}>
+                  <IonText>
+                    <h3 style={{ marginBottom: "8px", paddingLeft: "16px" }}>
+                      Photo
+                    </h3>
+                  </IonText>
+                  {photoDataUrl ? (
+                    <div style={{ position: "relative", marginBottom: "8px" }}>
+                      <img
+                        src={photoDataUrl}
+                        alt="Chore"
+                        style={{
+                          width: "100%",
+                          height: "200px",
+                          objectFit: "cover",
+                          borderRadius: "12px",
+                        }}
+                      />
+                      <IonButton
+                        fill="clear"
+                        size="small"
+                        color="danger"
+                        style={{
+                          position: "absolute",
+                          top: "8px",
+                          right: "8px",
+                          backgroundColor: "rgba(0,0,0,0.6)",
+                        }}
+                        onClick={handleRemovePhoto}
+                      >
+                        <IonIcon icon={closeCircleOutline} />
+                      </IonButton>
+                    </div>
+                  ) : null}
+                  <IonButton
+                    expand="block"
+                    fill="outline"
+                    className="modern-button"
+                    onClick={handleTakePhoto}
+                    disabled={isUploadingPhoto}
+                  >
+                    {isUploadingPhoto ? (
+                      <IonSpinner name="crescent" />
+                    ) : (
+                      <>
+                        <IonIcon icon={cameraOutline} slot="start" />
+                        {photoDataUrl ? "Retake Photo" : "Take Photo"}
+                      </>
+                    )}
+                  </IonButton>
+                </div>
+
                 <div
                   style={{ display: "flex", gap: "12px", marginTop: "24px" }}
                 >
@@ -385,6 +533,21 @@ const ChoreDetail: React.FC = () => {
                 </div>
               </IonCardHeader>
               <IonCardContent>
+                {chore.photo_url && (
+                  <div style={{ marginBottom: "16px" }}>
+                    <img
+                      src={`http://localhost:3000${chore.photo_url}`}
+                      alt="Chore"
+                      style={{
+                        width: "100%",
+                        height: "250px",
+                        objectFit: "cover",
+                        borderRadius: "12px",
+                      }}
+                    />
+                  </div>
+                )}
+
                 {chore.description && (
                   <div style={{ marginBottom: "16px" }}>
                     <IonText>

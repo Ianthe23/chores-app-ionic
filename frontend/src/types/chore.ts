@@ -6,6 +6,8 @@ export interface Chore {
   priority: 'low' | 'medium' | 'high';
   due_date?: string;
   points: number;
+  photo_url?: string;
+  photo_path?: string;
   created_at: string;
   updated_at: string;
   user_id: number;
@@ -17,6 +19,8 @@ export interface CreateChoreRequest {
   priority: 'low' | 'medium' | 'high';
   due_date?: string;
   points?: number;
+  photo_url?: string;
+  photo_path?: string;
 }
 
 export interface UpdateChoreRequest {
@@ -26,4 +30,6 @@ export interface UpdateChoreRequest {
   priority?: 'low' | 'medium' | 'high';
   due_date?: string;
   points?: number;
+  photo_url?: string;
+  photo_path?: string;
 }

@@ -73,6 +73,24 @@ export const initDatabase = async () => {
       }
     }
 
+    // Add photo_url column to existing tables (migration)
+    try {
+      await db.runAsync(`ALTER TABLE chores ADD COLUMN photo_url TEXT`);
+    } catch (error) {
+      if (!error.message.includes('duplicate column name')) {
+        console.log('Photo URL column migration note:', error.message);
+      }
+    }
+
+    // Add photo_path column to existing tables (migration)
+    try {
+      await db.runAsync(`ALTER TABLE chores ADD COLUMN photo_path TEXT`);
+    } catch (error) {
+      if (!error.message.includes('duplicate column name')) {
+        console.log('Photo path column migration note:', error.message);
+      }
+    }
+
     // Update existing records to have proper status based on completed field
     await db.runAsync(`
       UPDATE chores 

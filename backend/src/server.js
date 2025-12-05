@@ -5,6 +5,8 @@ import rateLimit from "express-rate-limit";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import { initDatabase } from "./database.js";
 import authRoutes from "./routes/auth.js";
@@ -14,6 +16,9 @@ import { setupWebSocket } from "./websocket.js";
 import { specs, swaggerUi } from "./swagger.js";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
@@ -52,6 +57,9 @@ app.use(limiter);
 // Body parsing
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files (uploaded photos)
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Initialize database
 await initDatabase();

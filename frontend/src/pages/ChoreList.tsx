@@ -38,6 +38,7 @@ import {
   calendarOutline,
   trashOutline,
   createOutline,
+  imageOutline,
 } from "ionicons/icons";
 import { useChores } from "../chores/ChoreProvider";
 import { useHistory } from "react-router-dom";
@@ -362,6 +363,42 @@ const ChoreList: React.FC = () => {
                   button
                   onClick={() => history.push(`/chore/${chore.id}`)}
                 >
+                  {chore.photo_url ? (
+                    <img
+                      src={`http://localhost:3000${chore.photo_url}`}
+                      alt={chore.title}
+                      slot="start"
+                      style={{
+                        width: "60px",
+                        height: "60px",
+                        objectFit: "cover",
+                        borderRadius: "8px",
+                        marginRight: "12px",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      slot="start"
+                      style={{
+                        width: "60px",
+                        height: "60px",
+                        backgroundColor: "var(--ion-color-light)",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: "12px",
+                      }}
+                    >
+                      <IonIcon
+                        icon={imageOutline}
+                        style={{
+                          fontSize: "24px",
+                          color: "var(--ion-color-medium)",
+                        }}
+                      />
+                    </div>
+                  )}
                   <IonLabel>
                     <h2>{chore.title}</h2>
                     {chore.description && (
