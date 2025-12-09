@@ -38,6 +38,7 @@ import {
   cameraOutline,
   closeCircleOutline,
   imageOutline,
+  locationOutline,
 } from "ionicons/icons";
 import { useParams, useHistory } from "react-router-dom";
 import { useChores } from "../chores/ChoreProvider";
@@ -46,6 +47,8 @@ import { format } from "date-fns";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import axios from "axios";
+import MapPicker from "../components/MapPicker";
+import MapView from "../components/MapView";
 
 interface RouteParams {
   id: string;
@@ -63,6 +66,7 @@ const ChoreDetail: React.FC = () => {
   const [toastMessage, setToastMessage] = useState("");
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -76,6 +80,9 @@ const ChoreDetail: React.FC = () => {
   const [photoDataUrl, setPhotoDataUrl] = useState<string>("");
   const [photoPath, setPhotoPath] = useState<string>("");
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [latitude, setLatitude] = useState<number | undefined>(undefined);
+  const [longitude, setLongitude] = useState<number | undefined>(undefined);
+  const [locationName, setLocationName] = useState<string>("");
 
   const isNewChore = id === "new";
 
@@ -89,8 +96,11 @@ const ChoreDetail: React.FC = () => {
         setStatus(choreData.status);
         setPriority(choreData.priority);
         setDueDate(choreData.due_date || "");
-        setPhotoDataUrl(choreData.photo_url || "");
+        setPhotoDataUrl(choreData.photo_url ? `http://localhost:3000${choreData.photo_url}` : "");
         setPhotoPath(choreData.photo_path || "");
+        setLatitude(choreData.latitude);
+        setLongitude(choreData.longitude);
+        setLocationName(choreData.location_name || "");
       }
     } else {
       setIsEditing(true);
@@ -140,8 +150,9 @@ const ChoreDetail: React.FC = () => {
     }
   };
 
-  const uploadPhotoToServer = async (dataUrl: string) => {
-    if (!chore) return;
+  const uploadPhotoToServer = async (dataUrl: string, choreParam?: Chore) => {
+    const targetChore = choreParam || chore;
+    if (!targetChore) return;
 
     setIsUploadingPhoto(true);
     try {
@@ -158,7 +169,7 @@ const ChoreDetail: React.FC = () => {
 
       // Upload to server
       const uploadResponse = await axios.post(
-        `http://localhost:3000/api/chores/${chore.id}/photo`,
+        `http://localhost:3000/api/chores/${targetChore.id}/photo`,
         formData,
         {
           headers: {
@@ -188,6 +199,18 @@ const ChoreDetail: React.FC = () => {
     setPhotoPath("");
   };
 
+  const handleLocationSelect = (lat: number, lng: number, locName: string) => {
+    setLatitude(lat);
+    setLongitude(lng);
+    setLocationName(locName);
+  };
+
+  const handleRemoveLocation = () => {
+    setLatitude(undefined);
+    setLongitude(undefined);
+    setLocationName("");
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       setToastMessage("Title is required");
@@ -203,11 +226,20 @@ const ChoreDetail: React.FC = () => {
         priority,
         due_date: dueDate || undefined,
         points: Number.isFinite(Number(points)) ? Number(points) : 0,
+        latitude: latitude,
+        longitude: longitude,
+        location_name: locationName || undefined,
         ...(isNewChore ? {} : { status }),
       };
 
       if (isNewChore) {
-        await createChore(choreData as CreateChoreRequest);
+        const newChore = await createChore(choreData as CreateChoreRequest);
+
+        // If there's a photo, upload it after creating the chore
+        if (photoDataUrl && newChore) {
+          await uploadPhotoToServer(photoDataUrl, newChore);
+        }
+
         setToastMessage("Chore created successfully");
         history.push("/chores");
       } else {
@@ -469,6 +501,44 @@ const ChoreDetail: React.FC = () => {
                   </IonButton>
                 </div>
 
+                {/* Location Section */}
+                <div style={{ marginTop: "16px" }}>
+                  <IonText>
+                    <h3 style={{ marginBottom: "8px", paddingLeft: "16px" }}>
+                      Location
+                    </h3>
+                  </IonText>
+                  {latitude && longitude ? (
+                    <div style={{ marginBottom: "8px" }}>
+                      <IonItem lines="none" className="modern-input">
+                        <IonIcon icon={locationOutline} slot="start" color="primary" />
+                        <IonLabel>
+                          <p style={{ color: "var(--ion-color-medium)" }}>
+                            {locationName || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`}
+                          </p>
+                        </IonLabel>
+                        <IonButton
+                          fill="clear"
+                          size="small"
+                          color="danger"
+                          onClick={handleRemoveLocation}
+                        >
+                          <IonIcon icon={closeCircleOutline} />
+                        </IonButton>
+                      </IonItem>
+                    </div>
+                  ) : null}
+                  <IonButton
+                    expand="block"
+                    fill="outline"
+                    className="modern-button"
+                    onClick={() => setShowMapModal(true)}
+                  >
+                    <IonIcon icon={locationOutline} slot="start" />
+                    {latitude && longitude ? "Change Location" : "Set Location"}
+                  </IonButton>
+                </div>
+
                 <div
                   style={{ display: "flex", gap: "12px", marginTop: "24px" }}
                 >
@@ -574,6 +644,29 @@ const ChoreDetail: React.FC = () => {
                   </div>
                 )}
 
+                {chore.latitude && chore.longitude && (
+                  <div style={{ marginBottom: "16px" }}>
+                    <IonText>
+                      <h3>Location</h3>
+                      {chore.location_name && (
+                        <p style={{ color: "var(--ion-color-medium)", marginBottom: "8px" }}>
+                          <IonIcon
+                            icon={locationOutline}
+                            style={{ marginRight: "8px" }}
+                          />
+                          {chore.location_name}
+                        </p>
+                      )}
+                    </IonText>
+                    <MapView
+                      latitude={chore.latitude}
+                      longitude={chore.longitude}
+                      locationName={chore.location_name}
+                      title={chore.title}
+                    />
+                  </div>
+                )}
+
                 <div style={{ marginBottom: "16px" }}>
                   <IonText>
                     <h3>Created</h3>
@@ -612,6 +705,8 @@ const ChoreDetail: React.FC = () => {
         <IonModal
           isOpen={showDateModal}
           onDidDismiss={() => setShowDateModal(false)}
+          initialBreakpoint={0.75}
+          breakpoints={[0, 0.5, 0.75, 1]}
         >
           <IonHeader>
             <IonToolbar>
@@ -623,12 +718,20 @@ const ChoreDetail: React.FC = () => {
               </IonButtons>
             </IonToolbar>
           </IonHeader>
-          <IonContent>
-            <IonDatetime
-              value={dueDate}
-              onIonChange={(e) => setDueDate(e.detail.value as string)}
-              presentation="date"
-            />
+          <IonContent className="ion-padding">
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: '300px'
+            }}>
+              <IonDatetime
+                value={dueDate}
+                onIonChange={(e) => setDueDate(e.detail.value as string)}
+                presentation="date"
+                style={{ width: '100%', maxWidth: '500px' }}
+              />
+            </div>
             <div className="ion-padding">
               <IonButton
                 expand="block"
@@ -641,6 +744,32 @@ const ChoreDetail: React.FC = () => {
                 Clear Due Date
               </IonButton>
             </div>
+          </IonContent>
+        </IonModal>
+
+        {/* Map Picker Modal */}
+        <IonModal
+          isOpen={showMapModal}
+          onDidDismiss={() => setShowMapModal(false)}
+          initialBreakpoint={0.9}
+          breakpoints={[0, 0.5, 0.75, 0.9, 1]}
+        >
+          <IonHeader>
+            <IonToolbar>
+              <IonTitle>Select Location</IonTitle>
+              <IonButtons slot="end">
+                <IonButton onClick={() => setShowMapModal(false)}>
+                  Done
+                </IonButton>
+              </IonButtons>
+            </IonToolbar>
+          </IonHeader>
+          <IonContent className="ion-padding">
+            <MapPicker
+              latitude={latitude}
+              longitude={longitude}
+              onLocationSelect={handleLocationSelect}
+            />
           </IonContent>
         </IonModal>
 

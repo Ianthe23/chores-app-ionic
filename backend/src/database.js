@@ -91,6 +91,33 @@ export const initDatabase = async () => {
       }
     }
 
+    // Add latitude column to existing tables (migration)
+    try {
+      await db.runAsync(`ALTER TABLE chores ADD COLUMN latitude REAL`);
+    } catch (error) {
+      if (!error.message.includes('duplicate column name')) {
+        console.log('Latitude column migration note:', error.message);
+      }
+    }
+
+    // Add longitude column to existing tables (migration)
+    try {
+      await db.runAsync(`ALTER TABLE chores ADD COLUMN longitude REAL`);
+    } catch (error) {
+      if (!error.message.includes('duplicate column name')) {
+        console.log('Longitude column migration note:', error.message);
+      }
+    }
+
+    // Add location_name column to existing tables (migration)
+    try {
+      await db.runAsync(`ALTER TABLE chores ADD COLUMN location_name TEXT`);
+    } catch (error) {
+      if (!error.message.includes('duplicate column name')) {
+        console.log('Location name column migration note:', error.message);
+      }
+    }
+
     // Update existing records to have proper status based on completed field
     await db.runAsync(`
       UPDATE chores 

@@ -40,6 +40,40 @@ import { useAuth } from "../auth/AuthProvider";
 import { useHistory } from "react-router-dom";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import NetworkStatus from "../components/NetworkStatus";
+import { motion } from "framer-motion";
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15
+    }
+  },
+  hover: {
+    scale: 1.05,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 10
+    }
+  }
+};
 
 const Dashboard: React.FC = () => {
   const { chores, fetchChores, isLoading } = useChores();
@@ -119,131 +153,149 @@ const Dashboard: React.FC = () => {
           </IonCard>
 
           {/* Stats Grid */}
-          <IonGrid>
-            <IonRow>
-              <IonCol size="6">
-                <IonCard
-                  className="modern-card slide-up"
-                  style={{ "--animation-delay": "0.1s" } as any}
-                >
-                  <IonCardContent className="ion-text-center">
-                    <IonIcon
-                      icon={checkmarkCircleOutline}
-                      style={{
-                        fontSize: "2rem",
-                        color: "var(--ion-color-success)",
-                      }}
-                    />
-                    <IonText>
-                      <h3 style={{ margin: "8px 0 4px 0" }}>
-                        {completedChores.length}
-                      </h3>
-                      <p
-                        style={{
-                          color: "var(--ion-color-medium)",
-                          fontSize: "0.9rem",
-                        }}
-                      >
-                        Completed
-                      </p>
-                    </IonText>
-                  </IonCardContent>
-                </IonCard>
-              </IonCol>
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <IonGrid>
+              <IonRow>
+                <IonCol size="6">
+                  <motion.div
+                    variants={cardVariants}
+                    whileHover="hover"
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <IonCard className="modern-card">
+                      <IonCardContent className="ion-text-center">
+                        <IonIcon
+                          icon={checkmarkCircleOutline}
+                          style={{
+                            fontSize: "2rem",
+                            color: "var(--ion-color-success)",
+                          }}
+                        />
+                        <IonText>
+                          <h3 style={{ margin: "8px 0 4px 0" }}>
+                            {completedChores.length}
+                          </h3>
+                          <p
+                            style={{
+                              color: "var(--ion-color-medium)",
+                              fontSize: "0.9rem",
+                            }}
+                          >
+                            Completed
+                          </p>
+                        </IonText>
+                      </IonCardContent>
+                    </IonCard>
+                  </motion.div>
+                </IonCol>
 
-              <IonCol size="6">
-                <IonCard
-                  className="modern-card slide-up"
-                  style={{ "--animation-delay": "0.2s" } as any}
-                >
-                  <IonCardContent className="ion-text-center">
-                    <IonIcon
-                      icon={timeOutline}
-                      style={{
-                        fontSize: "2rem",
-                        color: "var(--ion-color-warning)",
-                      }}
-                    />
-                    <IonText>
-                      <h3 style={{ margin: "8px 0 4px 0" }}>
-                        {pendingChores.length}
-                      </h3>
-                      <p
-                        style={{
-                          color: "var(--ion-color-medium)",
-                          fontSize: "0.9rem",
-                        }}
-                      >
-                        Pending
-                      </p>
-                    </IonText>
-                  </IonCardContent>
-                </IonCard>
-              </IonCol>
-            </IonRow>
+                <IonCol size="6">
+                  <motion.div
+                    variants={cardVariants}
+                    whileHover="hover"
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <IonCard className="modern-card">
+                      <IonCardContent className="ion-text-center">
+                        <IonIcon
+                          icon={timeOutline}
+                          style={{
+                            fontSize: "2rem",
+                            color: "var(--ion-color-warning)",
+                          }}
+                        />
+                        <IonText>
+                          <h3 style={{ margin: "8px 0 4px 0" }}>
+                            {pendingChores.length}
+                          </h3>
+                          <p
+                            style={{
+                              color: "var(--ion-color-medium)",
+                              fontSize: "0.9rem",
+                            }}
+                          >
+                            Pending
+                          </p>
+                        </IonText>
+                      </IonCardContent>
+                    </IonCard>
+                  </motion.div>
+                </IonCol>
+              </IonRow>
 
-            <IonRow>
-              <IonCol size="6">
-                <IonCard
-                  className="modern-card slide-up"
-                  style={{ "--animation-delay": "0.3s" } as any}
-                >
-                  <IonCardContent className="ion-text-center">
-                    <IonIcon
-                      icon={trendingUpOutline}
-                      style={{
-                        fontSize: "2rem",
-                        color: "var(--ion-color-tertiary)",
-                      }}
-                    />
-                    <IonText>
-                      <h3 style={{ margin: "8px 0 4px 0" }}>
-                        {inProgressChores.length}
-                      </h3>
-                      <p
-                        style={{
-                          color: "var(--ion-color-medium)",
-                          fontSize: "0.9rem",
-                        }}
-                      >
-                        In Progress
-                      </p>
-                    </IonText>
-                  </IonCardContent>
-                </IonCard>
-              </IonCol>
+              <IonRow>
+                <IonCol size="6">
+                  <motion.div
+                    variants={cardVariants}
+                    whileHover="hover"
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <IonCard className="modern-card">
+                      <IonCardContent className="ion-text-center">
+                        <IonIcon
+                          icon={trendingUpOutline}
+                          style={{
+                            fontSize: "2rem",
+                            color: "var(--ion-color-tertiary)",
+                          }}
+                        />
+                        <IonText>
+                          <h3 style={{ margin: "8px 0 4px 0" }}>
+                            {inProgressChores.length}
+                          </h3>
+                          <p
+                            style={{
+                              color: "var(--ion-color-medium)",
+                              fontSize: "0.9rem",
+                            }}
+                          >
+                            In Progress
+                          </p>
+                        </IonText>
+                      </IonCardContent>
+                    </IonCard>
+                  </motion.div>
+                </IonCol>
 
-              <IonCol size="6">
-                <IonCard
-                  className="modern-card slide-up"
-                  style={{ "--animation-delay": "0.4s" } as any}
-                >
-                  <IonCardContent className="ion-text-center">
-                    <IonIcon
-                      icon={alertCircleOutline}
-                      style={{
-                        fontSize: "2rem",
-                        color: "var(--ion-color-danger)",
-                      }}
-                    />
-                    <IonText>
-                      <h3 style={{ margin: "8px 0 4px 0" }}>
-                        {overdueTasks.length}
-                      </h3>
-                      <p
-                        style={{
-                          color: "var(--ion-color-medium)",
-                          fontSize: "0.9rem",
-                        }}
-                      >
-                        Overdue
-                      </p>
-                    </IonText>
-                  </IonCardContent>
-                </IonCard>
-              </IonCol>
-            </IonRow>
-          </IonGrid>
+                <IonCol size="6">
+                  <motion.div
+                    variants={cardVariants}
+                    whileHover="hover"
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <IonCard className="modern-card">
+                      <IonCardContent className="ion-text-center">
+                        <IonIcon
+                          icon={alertCircleOutline}
+                          style={{
+                            fontSize: "2rem",
+                            color: "var(--ion-color-danger)",
+                          }}
+                        />
+                        <IonText>
+                          <h3 style={{ margin: "8px 0 4px 0" }}>
+                            {overdueTasks.length}
+                          </h3>
+                          <p
+                            style={{
+                              color: "var(--ion-color-medium)",
+                              fontSize: "0.9rem",
+                            }}
+                          >
+                            Overdue
+                          </p>
+                        </IonText>
+                      </IonCardContent>
+                    </IonCard>
+                  </motion.div>
+                </IonCol>
+              </IonRow>
+            </IonGrid>
+          </motion.div>
 
           {/* Today's Tasks */}
           {todayTasks.length > 0 && (

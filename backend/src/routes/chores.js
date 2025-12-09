@@ -212,6 +212,9 @@ router.post("/", async (req, res) => {
       points = 0,
       photo_url,
       photo_path,
+      latitude,
+      longitude,
+      location_name,
     } = req.body;
 
     if (!title) {
@@ -222,8 +225,8 @@ router.post("/", async (req, res) => {
     const pointsValue = Number.isFinite(Number(points)) ? Number(points) : 0;
 
     const result = await db.runAsync(
-      `INSERT INTO chores (user_id, title, description, priority, due_date, status, completed, points, photo_url, photo_path)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO chores (user_id, title, description, priority, due_date, status, completed, points, photo_url, photo_path, latitude, longitude, location_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.id,
         title,
@@ -235,6 +238,9 @@ router.post("/", async (req, res) => {
         pointsValue,
         photo_url,
         photo_path,
+        latitude,
+        longitude,
+        location_name,
       ]
     );
 
@@ -344,6 +350,9 @@ router.put("/:id", async (req, res) => {
       points,
       photo_url,
       photo_path,
+      latitude,
+      longitude,
+      location_name,
     } = req.body;
 
     // Check if chore belongs to user
@@ -386,11 +395,14 @@ router.put("/:id", async (req, res) => {
           : existingChore.points,
       photo_url: photo_url !== undefined ? photo_url : existingChore.photo_url,
       photo_path: photo_path !== undefined ? photo_path : existingChore.photo_path,
+      latitude: latitude !== undefined ? latitude : existingChore.latitude,
+      longitude: longitude !== undefined ? longitude : existingChore.longitude,
+      location_name: location_name !== undefined ? location_name : existingChore.location_name,
     };
 
     await db.runAsync(
       `UPDATE chores
-       SET title = ?, description = ?, completed = ?, status = ?, priority = ?, due_date = ?, points = ?, photo_url = ?, photo_path = ?, updated_at = CURRENT_TIMESTAMP
+       SET title = ?, description = ?, completed = ?, status = ?, priority = ?, due_date = ?, points = ?, photo_url = ?, photo_path = ?, latitude = ?, longitude = ?, location_name = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND user_id = ?`,
       [
         updateData.title,
@@ -402,6 +414,9 @@ router.put("/:id", async (req, res) => {
         updateData.points,
         updateData.photo_url,
         updateData.photo_path,
+        updateData.latitude,
+        updateData.longitude,
+        updateData.location_name,
         id,
         req.user.id,
       ]

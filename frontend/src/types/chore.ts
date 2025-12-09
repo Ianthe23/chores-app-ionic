@@ -8,6 +8,9 @@ export interface Chore {
   points: number;
   photo_url?: string;
   photo_path?: string;
+  latitude?: number;
+  longitude?: number;
+  location_name?: string;
   created_at: string;
   updated_at: string;
   user_id: number;
@@ -21,6 +24,9 @@ export interface CreateChoreRequest {
   points?: number;
   photo_url?: string;
   photo_path?: string;
+  latitude?: number;
+  longitude?: number;
+  location_name?: string;
 }
 
 export interface UpdateChoreRequest {
@@ -32,4 +38,7 @@ export interface UpdateChoreRequest {
   points?: number;
   photo_url?: string;
   photo_path?: string;
+  latitude?: number;
+  longitude?: number;
+  location_name?: string;
 }

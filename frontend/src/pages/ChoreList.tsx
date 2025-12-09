@@ -44,6 +44,23 @@ import { useChores } from "../chores/ChoreProvider";
 import { useHistory } from "react-router-dom";
 import { format } from "date-fns";
 import NetworkStatus from "../components/NetworkStatus";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Animation variants for list items
+const listItemVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: {
+      delay: i * 0.05,
+      type: "spring",
+      stiffness: 100,
+      damping: 12
+    }
+  }),
+  exit: { opacity: 0, x: 20, transition: { duration: 0.2 } }
+};
 
 const ChoreList: React.FC = () => {
   const {
@@ -356,38 +373,50 @@ const ChoreList: React.FC = () => {
                 </IonText>
               </div>
             ) : (
-              filteredChores.map((chore) => (
-                <IonItem
-                  key={chore.id}
-                  className="modern-list-item fade-in"
-                  button
-                  onClick={() => history.push(`/chore/${chore.id}`)}
-                >
-                  {chore.photo_url ? (
-                    <img
-                      src={`http://localhost:3000${chore.photo_url}`}
-                      alt={chore.title}
-                      slot="start"
-                      style={{
-                        width: "60px",
-                        height: "60px",
-                        objectFit: "cover",
-                        borderRadius: "8px",
-                        marginRight: "12px",
-                      }}
-                    />
-                  ) : (
+              <AnimatePresence mode="popLayout">
+                {filteredChores.map((chore, index) => (
+                  <motion.div
+                    key={chore.id}
+                    custom={index}
+                    variants={listItemVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    layout
+                  >
+                    <IonItem
+                      className="modern-list-item"
+                      button
+                      onClick={() => history.push(`/chore/${chore.id}`)}
+                    >
+                  <div slot="start" style={{ marginRight: "12px" }}>
+                    {chore.photo_url ? (
+                      <img
+                        src={`http://localhost:3000${chore.photo_url}`}
+                        alt={chore.title}
+                        style={{
+                          width: "60px",
+                          height: "60px",
+                          objectFit: "cover",
+                          borderRadius: "8px",
+                        }}
+                        onError={(e) => {
+                          // If image fails to load, hide it and show placeholder
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const placeholder = (e.target as HTMLElement).nextElementSibling as HTMLElement;
+                          if (placeholder) placeholder.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
                     <div
-                      slot="start"
                       style={{
                         width: "60px",
                         height: "60px",
                         backgroundColor: "var(--ion-color-light)",
                         borderRadius: "8px",
-                        display: "flex",
+                        display: chore.photo_url ? "none" : "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        marginRight: "12px",
                       }}
                     >
                       <IonIcon
@@ -398,7 +427,7 @@ const ChoreList: React.FC = () => {
                         }}
                       />
                     </div>
-                  )}
+                  </div>
                   <IonLabel>
                     <h2>{chore.title}</h2>
                     {chore.description && (
@@ -479,7 +508,9 @@ const ChoreList: React.FC = () => {
                     </IonButton>
                   </div>
                 </IonItem>
-              ))
+              </motion.div>
+            ))}
+          </AnimatePresence>
             )}
           </IonList>
         )}
