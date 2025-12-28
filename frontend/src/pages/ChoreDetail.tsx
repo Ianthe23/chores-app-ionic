@@ -37,15 +37,15 @@ import {
   checkmarkCircleOutline,
   cameraOutline,
   closeCircleOutline,
-  imageOutline,
   locationOutline,
 } from "ionicons/icons";
 import { useParams, useHistory } from "react-router-dom";
 import { useChores } from "../chores/ChoreProvider";
 import { Chore, UpdateChoreRequest, CreateChoreRequest } from "../types/chore";
 import { format } from "date-fns";
-import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { Camera, CameraResultType, CameraSource, CameraDirection } from "@capacitor/camera";
 import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Capacitor } from "@capacitor/core";
 import axios from "axios";
 import MapPicker from "../components/MapPicker";
 import MapView from "../components/MapView";
@@ -78,7 +78,7 @@ const ChoreDetail: React.FC = () => {
   const [dueDate, setDueDate] = useState<string>("");
   const [points, setPoints] = useState<number>(0);
   const [photoDataUrl, setPhotoDataUrl] = useState<string>("");
-  const [photoPath, setPhotoPath] = useState<string>("");
+  const [_photoPath, setPhotoPath] = useState<string>("");
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [latitude, setLatitude] = useState<number | undefined>(undefined);
   const [longitude, setLongitude] = useState<number | undefined>(undefined);
@@ -116,37 +116,200 @@ const ChoreDetail: React.FC = () => {
 
   const handleTakePhoto = async () => {
     try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera,
-      });
+      // Check if running on native platform (iOS/Android) or web
+      const isNativePlatform = Capacitor.isNativePlatform();
 
-      if (image.dataUrl) {
-        setPhotoDataUrl(image.dataUrl);
+      if (!isNativePlatform) {
+        // For web/desktop, use HTML5 MediaDevices API
+        await handleWebCameraCapture();
+      } else {
+        // For native mobile platforms, use Capacitor Camera
+        // Check and request camera permissions first
+        const permissions = await Camera.checkPermissions();
 
-        // Save photo to device using Filesystem
-        const fileName = `photo_${new Date().getTime()}.${image.format}`;
-        const savedFile = await Filesystem.writeFile({
-          path: fileName,
-          data: image.dataUrl,
-          directory: Directory.Data,
+        if (permissions.camera === 'denied') {
+          setToastMessage("Camera permission denied. Please enable it in settings.");
+          setShowToast(true);
+          return;
+        }
+
+        if (permissions.camera === 'prompt' || permissions.camera === 'prompt-with-rationale') {
+          const requested = await Camera.requestPermissions({ permissions: ['camera'] });
+          if (requested.camera === 'denied') {
+            setToastMessage("Camera permission is required to take selfies.");
+            setShowToast(true);
+            return;
+          }
+        }
+
+        const image = await Camera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Camera, // Force camera only (no gallery)
+          direction: CameraDirection.Front, // Use front-facing camera for selfies
+          saveToGallery: false,
+          correctOrientation: true,
         });
 
-        setPhotoPath(savedFile.uri);
-        setToastMessage("Photo captured successfully!");
-        setShowToast(true);
+        if (image.dataUrl) {
+          setPhotoDataUrl(image.dataUrl);
 
-        // If editing existing chore, upload photo immediately
-        if (!isNewChore && chore) {
-          await uploadPhotoToServer(image.dataUrl);
+          // Save photo to device using Filesystem
+          try {
+            const fileName = `photo_${new Date().getTime()}.${image.format}`;
+            const savedFile = await Filesystem.writeFile({
+              path: fileName,
+              data: image.dataUrl,
+              directory: Directory.Data,
+            });
+            setPhotoPath(savedFile.uri);
+          } catch (fsError) {
+            console.warn("Failed to save to filesystem, continuing anyway:", fsError);
+            // Continue even if filesystem save fails - we still have the dataUrl
+          }
+
+          setToastMessage("Selfie captured successfully!");
+          setShowToast(true);
+
+          // If editing existing chore, upload photo immediately
+          if (!isNewChore && chore) {
+            await uploadPhotoToServer(image.dataUrl);
+          }
         }
       }
     } catch (error: any) {
       console.error("Error taking photo:", error);
-      setToastMessage(error.message || "Failed to take photo");
+
+      // More helpful error messages
+      if (error.message && error.message.includes('User cancelled')) {
+        setToastMessage("Photo capture cancelled");
+      } else if (error.message && error.message.includes('permission')) {
+        setToastMessage("Camera permission denied");
+      } else {
+        setToastMessage(error.message || "Failed to take selfie");
+      }
       setShowToast(true);
+    }
+  };
+
+  const handleWebCameraCapture = async () => {
+    // Create a modal/overlay for the camera
+    const video = document.createElement('video');
+    const canvas = document.createElement('canvas');
+    const overlay = document.createElement('div');
+
+    // Style the overlay
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    video.style.cssText = `
+      max-width: 90%;
+      max-height: 70vh;
+      border-radius: 12px;
+      transform: scaleX(-1);
+    `;
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+      margin-top: 20px;
+      display: flex;
+      gap: 12px;
+    `;
+
+    const captureButton = document.createElement('button');
+    captureButton.textContent = 'Capture Selfie';
+    captureButton.style.cssText = `
+      padding: 12px 24px;
+      font-size: 16px;
+      background: #3880ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    `;
+
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Cancel';
+    cancelButton.style.cssText = `
+      padding: 12px 24px;
+      font-size: 16px;
+      background: #666;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    `;
+
+    buttonContainer.appendChild(captureButton);
+    buttonContainer.appendChild(cancelButton);
+    overlay.appendChild(video);
+    overlay.appendChild(buttonContainer);
+    document.body.appendChild(overlay);
+
+    try {
+      // Request camera access with front camera preference
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' }, // 'user' = front camera
+        audio: false,
+      });
+
+      video.srcObject = stream;
+      video.play();
+
+      // Wait for user to capture or cancel
+      await new Promise<void>((resolve, reject) => {
+        captureButton.onclick = () => {
+          // Set canvas dimensions to match video
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            // Flip the image horizontally to match the mirrored preview
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0);
+          }
+
+          // Convert to data URL
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+          setPhotoDataUrl(dataUrl);
+          setPhotoPath(`web_photo_${new Date().getTime()}.jpg`);
+          setToastMessage("Selfie captured successfully!");
+          setShowToast(true);
+
+          // If editing existing chore, upload photo immediately
+          if (!isNewChore && chore) {
+            uploadPhotoToServer(dataUrl);
+          }
+
+          resolve();
+        };
+
+        cancelButton.onclick = () => {
+          reject(new Error('Capture cancelled'));
+        };
+      });
+
+      // Stop all tracks
+      stream.getTracks().forEach(track => track.stop());
+    } catch (error) {
+      throw error;
+    } finally {
+      // Clean up
+      document.body.removeChild(overlay);
     }
   };
 
@@ -495,7 +658,7 @@ const ChoreDetail: React.FC = () => {
                     ) : (
                       <>
                         <IonIcon icon={cameraOutline} slot="start" />
-                        {photoDataUrl ? "Retake Photo" : "Take Photo"}
+                        {photoDataUrl ? "Retake Selfie" : "Take Selfie"}
                       </>
                     )}
                   </IonButton>
